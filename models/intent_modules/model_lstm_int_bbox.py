@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torchvision.models as models
+from torchvision.models import ResNet50_Weights, VGG16_Weights
 
 cuda = True if torch.cuda.is_available() else False
 device = torch.device("cuda:0" if cuda else "cpu")
@@ -16,16 +18,26 @@ class LSTMIntBbox(nn.Module):
         self.observe_length = self.args.observe_length
         self.predict_length = self.args.predict_length
 
-        self.backbone = args.backbone
+        
+        # Initialisation du backbone avec une instance du modèle spécifié
+        if self.args.backbone == 'resnet50':
+            self.backbone = models.resnet50(weights=ResNet50_Weights.DEFAULT)
+        elif self.args.backbone == 'vgg16':
+            self.backbone = models.vgg16(weights='IMAGENET1K_V1')
+        else:
+            self.backbone = None
+        
+        # Initialisation du backbone avec une instance du modèle spécifié
+        #if self.args.backbone == 'resnet50':
+        #    self.backbone = models.resnet50(weights=ResNet50_Weights.DEFAULT)
+        #elif self.args.backbone == 'vgg16':
+        #    self.backbone = models.vgg16(weights=VGG16_Weights.DEFAULT)
+        #else:
+        #    self.backbone = None
+            
         self.intent_predictor = LSTMInt(self.args, self.model_configs['intent_model_opts'])
-        # intent predictor, always output (bs x 1) intention logits
-        self.traj_predictor = None
-
         self.module_list = self.intent_predictor.module_list
         self.network_list = [self.intent_predictor]
-        # self._reset_parameters()
-        # self.optimizer = None
-        # self.build_optimizer(args)
 
     def forward(self, data):
         bbox = data['bboxes'][:, :self.args.observe_length, :].type(FloatTensor)
@@ -37,7 +49,13 @@ class LSTMIntBbox(nn.Module):
 
         # 1. backbone feature (to be implemented for images)
         if self.backbone is not None:
-            pass
+            
+            if self.args.backbone == 'resnet50':
+                self.backbone = models.resnet50(weights=ResNet50_Weights.DEFAULT)
+            elif self.args.backbone == 'vgg16':
+                self.backbone = models.vgg16(weights='IMAGENET1K_V1')
+            else:
+                self.backbone = None
 
         # 2. intent prediction
         intent_pred = self.intent_predictor(bbox, dec_input_emb)
@@ -51,12 +69,12 @@ class LSTMIntBbox(nn.Module):
         if self.backbone is not None:
             for name, param in self.backbone.named_parameters():
                 if not self.args.freeze_backbone:
-                    param.requres_grad = True
+                    param.requires_grad = True
                     param_group += [{'params': param, 'lr': learning_rate * 0.1}]
                 else:
-                    param.requres_grad = False
+                    param.requires_grad = False
 
-        for net in self.network_list:  # [reason, intent, traj, truct] networks
+        for net in self.network_list:
             for module in net.module_list:
                 param_group += [{'params': module.parameters(), 'lr': learning_rate}]
 
@@ -92,7 +110,22 @@ class LSTMIntBbox(nn.Module):
 
         # 1. backbone feature (to be implemented)
         if self.backbone is not None:
-            pass
+           
+            # Initialisation du backbone avec une instance du modèle spécifié
+            if self.args.backbone == 'resnet50':
+                self.backbone = models.resnet50(pretrained=True)
+            elif self.args.backbone == 'vgg16':
+                self.backbone = models.vgg16(weights=ResNet50_Weights.DEFAULT)
+            else:
+                self.backbone = None
+        
+        # Initialisation du backbone avec une instance du modèle spécifié
+        #if self.args.backbone == 'resnet50':
+        #    self.backbone = models.resnet50(weights=ResNet50_Weights.DEFAULT)
+        #elif self.args.backbone == 'vgg16':
+        #    self.backbone = models.vgg16(weights=VGG16_Weights.DEFAULT)
+        #else:
+        #    self.backbone = None
 
         # 2. intent prediction
         intent_pred = self.intent_predictor(bbox, dec_input_emb)
@@ -105,8 +138,8 @@ class LSTMInt(nn.Module):
 
         enc_in_dim = model_opts['enc_in_dim']
         enc_out_dim = model_opts['enc_out_dim']
-        # dec_in_emb_dim = model_opts['dec_in_emb_dim']
-        # dec_out_dim = model_opts['dec_out_dim']
+        dec_in_emb_dim = model_opts['dec_in_emb_dim']
+        dec_out_dim = model_opts['dec_out_dim']
         output_dim = model_opts['output_dim']
         n_layers = model_opts['n_layers']
         dropout = model_opts['dropout']
