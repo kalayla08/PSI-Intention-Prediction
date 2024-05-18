@@ -1,5 +1,4 @@
 import collections
-
 from test import validate_intent
 import torch
 import numpy as np
@@ -36,14 +35,7 @@ def train_intent(model, optimizer, scheduler, train_loader, val_loader, args, re
             recorder.eval_epoch_reset(epoch, niters)
             validate_intent(epoch, model, val_loader, args, recorder, writer)
 
-            # result_path = os.path.join(args.checkpoint_path, 'results', f'epoch_{epoch}')
-            # if not os.path.isdir(result_path):
-            #     os.makedirs(result_path)
-            # recorder.save_results(prefix='')
-            # torch.save(model.state_dict(), result_path + f'/state_dict.pth')
-
         torch.save(model.state_dict(), args.checkpoint_path + f'/latest.pth')
-
 
 def train_intent_epoch(epoch, model, optimizer, criterions, epoch_loss, dataloader, args, recorder, writer):
     model.train()
@@ -53,10 +45,12 @@ def train_intent_epoch(epoch, model, optimizer, criterions, epoch_loss, dataload
     for itern, data in enumerate(dataloader):
         optimizer.zero_grad()
         intent_logit = model(data)
-        # intent_pred: sigmoid output, (0, 1), bs
-        # traj_pred: logit, bs x ts x 4
+
+        # Initialisation de gt_intent_prob
+        gt_intent_prob = torch.zeros_like(intent_logit)
 
         # 1. intent loss
+        loss_intent = 0
         if args.intent_type == 'mean' and args.intent_num == 2: # BCEWithLogitsLoss
             gt_intent = data['intention_binary'][:, args.observe_length].type(FloatTensor)
             gt_intent_prob = data['intention_prob'][:, args.observe_length].type(FloatTensor)
@@ -64,7 +58,6 @@ def train_intent_epoch(epoch, model, optimizer, criterions, epoch_loss, dataload
             gt_disagreement = data['disagree_score'][:, args.observe_length]
             gt_consensus = (1 - gt_disagreement).to(device)
 
-            loss_intent = 0
             if 'bce' in args.intent_loss:
                 loss_intent_bce = criterions['BCEWithLogitsLoss'](intent_logit, gt_intent)
 
@@ -89,8 +82,12 @@ def train_intent_epoch(epoch, model, optimizer, criterions, epoch_loss, dataload
                     loss_intent_mse = torch.mean(loss_intent_mse)
 
                 batch_losses['loss_intent_mse'].append(loss_intent_mse.item())
-
                 loss_intent += loss_intent_mse
+
+        elif args.intent_type == 'major' and args.intent_num == 3: # CrossEntropyLoss for 3 classes
+            gt_intent = data['intention_binary'][:, args.observe_length].type(LongTensor)
+            loss_intent = criterions['CELoss'](intent_logit, gt_intent)
+            batch_losses['loss_intent_ce'].append(loss_intent.item())
 
         loss = args.loss_weights['loss_intent'] * loss_intent
 
@@ -104,7 +101,9 @@ def train_intent_epoch(epoch, model, optimizer, criterions, epoch_loss, dataload
         if itern % args.print_freq == 0:
             print(f"Epoch {epoch}/{args.epochs} | Batch {itern}/{niters} - "
                   f"loss_intent = {np.mean(batch_losses['loss_intent']): .4f}")
+
         intent_prob = torch.sigmoid(intent_logit)
+
         recorder.train_intent_batch_update(itern, data, gt_intent.detach().cpu().numpy(),
                                            gt_intent_prob.detach().cpu().numpy(),
                                            intent_prob.detach().cpu().numpy(),
