@@ -13,16 +13,21 @@ def validate_intent(epoch, model, dataloader, args, recorder, writer):
     for itern, data in enumerate(dataloader):
         intent_logit = model.forward(data)
         intent_prob = torch.sigmoid(intent_logit)
-        # intent_pred: logit output, bs
-        # traj_pred: logit, bs x ts x 4
-
-        # 1. intent loss
+        
+        # Ajoutons la définition de gt_intent ici en fonction des mêmes conditions que dans train_intent_epoch
+        
         if args.intent_type == 'mean' and args.intent_num == 2:  # BCEWithLogitsLoss
             gt_intent = data['intention_binary'][:, args.observe_length].type(FloatTensor)
             gt_intent_prob = data['intention_prob'][:, args.observe_length].type(FloatTensor)
-            # gt_disagreement = data['disagree_score'][:, args.observe_length]
-            # gt_consensus = (1 - gt_disagreement).to(device)
+            gt_disagreement = data['disagree_score'][:, args.observe_length]
+            gt_consensus = (1 - gt_disagreement).to(device)
+        elif args.intent_type == 'major' and args.intent_num == 3:  # CrossEntropyLoss
+            gt_intent = data['intention_binary'][:, args.observe_length].type(FloatTensor)
+            gt_intent_prob = data['intention_prob'][:, args.observe_length].type(FloatTensor)
+            gt_disagreement = data['disagree_score'][:, args.observe_length]
+            gt_consensus = (1 - gt_disagreement).to(device)
 
+        # recorder.eval_intent_batch_update doit être à l'intérieur de la boucle for
         recorder.eval_intent_batch_update(itern, data, gt_intent.detach().cpu().numpy(),
                                    intent_prob.detach().cpu().numpy(), gt_intent_prob.detach().cpu().numpy())
 
@@ -48,6 +53,9 @@ def test_intent(epoch, model, dataloader, args, recorder, writer):
         if args.intent_type == 'mean' and args.intent_num == 2:  # BCEWithLogitsLoss
             gt_intent = data['intention_binary'][:, args.observe_length].type(FloatTensor)
             gt_intent_prob = data['intention_prob'][:, args.observe_length].type(FloatTensor)
+        elif args.intent_type == 'major' and args.intent_num == 3:  # CrossEntropyLoss
+            gt_intent = data['intention_binary'][:, args.observe_length].to(device)
+            gt_intent_prob = data['intention_prob'][:, args.observe_length].to(device)
 
         recorder.eval_intent_batch_update(itern, data, gt_intent.detach().cpu().numpy(),
                                    intent_prob.detach().cpu().numpy(), gt_intent_prob.detach().cpu().numpy())
@@ -68,9 +76,9 @@ def predict_intent(model, dataloader, args, dset='test'):
             vid = data['video_id'][i]  # str list, bs x 60
             pid = data['ped_id'][i]  # str list, bs x 60
             fid = (data['frames'][i][-1] + 1).item()  # int list, bs x 15, observe 0~14, predict 15th intent
-            # gt_int = data['intention_binary'][i][args.observe_length].item()  # int list, bs x 60
-            # gt_int_prob = data['intention_prob'][i][args.observe_length].item()  # float list, bs x 60
-            # gt_disgr = data['disagree_score'][i][args.observe_length].item()  # float list, bs x 60
+            gt_int = data['intention_binary'][i][args.observe_length].item()  # int list, bs x 60
+            gt_int_prob = data['intention_prob'][i][args.observe_length].item()  # float list, bs x 60
+            gt_disgr = data['disagree_score'][i][args.observe_length].item()  # float list, bs x 60
             int_prob = intent_prob[i].item()
             int_pred = round(int_prob) # <0.5 --> 0, >=0.5 --> 1.
 
