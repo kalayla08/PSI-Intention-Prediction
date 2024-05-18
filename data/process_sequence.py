@@ -69,7 +69,7 @@ def get_intent(database, video_name, ped_id, args):
                 prob_seq.append(intent_prob)
                 intent_seq.append(intent_binary)
                 disagree_seq.append(1 - intent_prob)
-                description_seq.append(descriptions)
+                #description_seq.append(descriptions)
             elif args.intent_num == 2: # only counts labels not "not-sure", but will involve issues if all annotators are not-sure.
                 raise Exception("Sequence processing not implemented!")
             else:
@@ -101,5 +101,3 @@ def get_intent(database, video_name, ped_id, args):
                 description_seq.append(descriptions)
 
     return intent_seq, prob_seq, disagree_seq, description_seq
-
-
