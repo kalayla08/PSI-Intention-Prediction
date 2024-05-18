@@ -1,6 +1,5 @@
 import argparse
 
-
 def get_opts():
     parser = argparse.ArgumentParser(description='PyTorch implementation of the PSI2.0')
     # about data
@@ -8,17 +7,17 @@ def get_opts():
                         help='task name: [PSI1.0 | PSI2.0]')
     parser.add_argument('--task_name', type=str, default='ped_intent',
                         help='task name: [ped_intent | ped_traj | driving_decision]')
-    parser.add_argument('--video_splits', type=str, default='./splits/PSI200_split.json',
+    parser.add_argument('--video_splits', type=str, default='./splits/PSI2_split.json',
                         help='video splits, [PSI100_split | PSI200_split | PSI200_split_paper]')
-    parser.add_argument('--dataset_root_path', type=str, default='path to dataset rootpath',
+    parser.add_argument('--dataset_root_path', type=str, default='C:/Users/Layla Kaabouche/Desktop/dataset',
                         help='Path of the dataset, e.g. frames/video_0001/000.jpg')
-    parser.add_argument('--database_path', type=str, default='./database',
+    parser.add_argument('--database_path', type=str, default='C:/Users/Layla Kaabouche/Desktop/dataset/database',
                         help='Path of the database created based on the cv_annotations and nlp_annotations')
     parser.add_argument('--database_file', type=str, default='intent_database_train.pkl',
                         help='Filename of the database created based on the cv_annotations and nlp_annotations')
     parser.add_argument('--fps', type=int, default=30,
                         help=' fps of original video, PSI and PEI == 30.')
-    parser.add_argument('--seq_overlap_rate', type=float, default=0.9, # 1 means every stride is 1 frame
+    parser.add_argument('--seq_overlap_rate', type=float, default=1, # 1 means every stride is 1 frame
                         help='Train/Val rate of the overlap frames of slideing windown, (1-rate)*seq_length is the step size')
     parser.add_argument('--test_seq_overlap_rate', type=float, default=1, # 1 means every stride is 1 frame
                         help='Test overlap rate of the overlap frames of slideing windown, (1-rate)*seq_length is the step size')
@@ -73,7 +72,7 @@ def get_opts():
                         help='weights of loss terms, {loss_intent, loss_traj}')
     parser.add_argument('--intent_loss', type=list, default=['bce'],
                         help='loss for intent output. [bce | mse | cross_entropy]')
-    parser.add_argument('--intent_disagreement', type=float, default=-1.0,
+    parser.add_argument('--intent_disagreement', type=float, default= 1.0,
                         help='weather use disagreement to reweight intent loss.threshold to filter training data.'
                              'consensus > 0.5 are selected and reweigh loss; -1.0 means not use; 0.0, means all are used.')
     parser.add_argument('--ignore_uncertain', type=bool, default=False,
