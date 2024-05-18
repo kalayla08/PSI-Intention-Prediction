@@ -24,13 +24,13 @@ def get_lstm_intent_bbox(args):
         'enc_out_dim': 64,
         'dec_in_emb_dim': None,  # encoder output + bbox
         'dec_out_dim': 64,
-        'output_dim': 1,  # intent prediction, output logits, add activation later
+        'output_dim': 3,  # intent prediction, output logits, add activation later
         'n_layers': 1,
         'dropout': 0.5,
         'observe_length': args.observe_length,  # 15
         'predict_length': 1,  # only predict one intent
         'return_sequence': False,  # False for reason/intent/trust. True for trajectory
-        'output_activation': 'None'  # [None | tanh | sigmoid | softmax]
+        'output_activation':'softmax'  # [None | tanh | sigmoid | softmax]
     }
     args.model_configs = model_configs
     model = LSTMIntBbox(args, model_configs)
