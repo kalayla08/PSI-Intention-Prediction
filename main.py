@@ -28,12 +28,18 @@ def main(args):
     model, optimizer, scheduler = build_model(args)
     model = nn.DataParallel(model)
 
-    # ''' 3. Train '''
+    ''' 3. Train '''
     train_intent(model, optimizer, scheduler, train_loader, val_loader, args, recorder, writer)
 
     val_gt_file = './test_gt/val_intent_gt.json'
-    if not os.path.exists(val_gt_file):
-        get_intent_gt(val_loader, val_gt_file, args)
+
+    # Supprimer le fichier val_intent_gt existant s'il est présent
+    if os.path.exists(val_gt_file):
+        os.remove(val_gt_file)
+
+    # Créer le fichier val_intent_gt.json
+    get_intent_gt(val_loader, val_gt_file, args)
+
     predict_intent(model, val_loader, args, dset='val')
     evaluate_intent(val_gt_file, args.checkpoint_path + '/results/val_intent_pred', args)
 
@@ -47,15 +53,10 @@ def main(args):
 if __name__ == '__main__':
     # /home/scott/Work/Toyota/PSI_Competition/Dataset
     args = get_opts()
-    args.dataset_root_path = '/home/scott/Work/Toyota/PSI_Competition/Dataset'
+    args.dataset_root_path = 'C:/Users/Layla Kaabouche/Desktop/dataset'
     # Dataset
-    args.dataset = 'PSI2.0'
-    if args.dataset == 'PSI2.0':
-        args.video_splits = os.path.join(args.dataset_root_path, 'PSI2.0_TrainVal/splits/PSI2_split.json')
-    elif args.dataset == 'PSI1.0':
-        args.video_splits = os.path.join(args.dataset_root_path, 'PSI1.0/splits/PSI1_split.json')
-    else:
-        raise Exception("Unknown dataset name!")
+    args.video_splits = os.path.join(args.dataset_root_path, 'PSI2.0_TrainVal/splits/PSI2_split.json')
+
 
 
     # Task
@@ -66,20 +67,13 @@ if __name__ == '__main__':
         args.intent_model = True
 
     # intent prediction
-    args.intent_num = 2  # 3 for 'major' vote; 2 for mean intent
-    args.intent_type = 'mean' # >= 0.5 --> 1 (cross); < 0.5 --> 0 (not cross)
-    args.intent_loss = ['bce']
-    args.intent_disagreement = 1  # -1: not use disagreement 1: use disagreement to reweigh samples
+    args.intent_num = 3  # 3 for 'major' vote; 2 for mean intent
+    args.intent_type = 'major' # >= 0.5 --> 1 (cross); < 0.5 --> 0 (not cross)
+    args.intent_loss = ['cross_entropy']
+    args.intent_disagreement = -1.0 # -1: not use disagreement 1: use disagreement to reweigh samples
     args.intent_positive_weight = 0.5  # Reweigh BCE loss of 0/1, 0.5 = count(-1) / count(1)
 
-    # trajectory
-    if args.task_name == 'ped_traj':
-        args.database_file = 'traj_database_train.pkl'
-        args.intent_model = False # if (or not) use intent prediction module to support trajectory prediction
-        args.traj_model = True
-        args.traj_loss = ['bbox_l1']
-
-    args.seq_overlap_rate = 0.9 # overlap rate for trian/val set
+    args.seq_overlap_rate = 1 # overlap rate for trian/val set
     args.test_seq_overlap_rate = 1 # overlap for test set. if == 1, means overlap is one frame, following PIE
     args.observe_length = 15
     if args.task_name == 'ped_intent':
@@ -89,16 +83,16 @@ if __name__ == '__main__':
 
     args.max_track_size = args.observe_length + args.predict_length
     args.crop_mode = 'enlarge'
-    args.normalize_bbox = None
+    args.normalize_bbox =  None
     # 'subtract_first_frame' #here use None, so the traj bboxes output loss is based on origianl coordinates
     # [None (paper results) | center | L2 | subtract_first_frame (good for evidential) | divide_image_size]
 
     # Model
     args.model_name = 'lstm_int_bbox'  # LSTM module, with bboxes sequence as input, to predict intent
-    args.load_image = False # only bbox sequence as input
+    args.load_image = True # False: only bbox sequence as input
     if args.load_image:
-        args.backbone = 'resnet'
-        args.freeze_backbone = False
+        args.backbone = 'resnet50'#[resnet50 | vgg16]
+        args.freeze_backbone = False #True: poids du backbone ne seront pas mis à jour pendant l'entraînement du modèle
     else:
         args.backbone = None
         args.freeze_backbone = False
