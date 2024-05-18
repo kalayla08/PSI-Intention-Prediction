@@ -77,10 +77,7 @@ def init_db(video_list, db_log, args):
 #     data_split = 'train' # 'train', 'val', 'test'
     dataroot = args.dataset_root_path
     # key_frame_folder = 'cognitive_annotation_key_frame'
-    if args.dataset == 'PSI2.0':
-        extended_folder = 'PSI2.0_TrainVal/annotations/cognitive_annotation_extended'
-    elif args.dataset == 'PSI1.0':
-        extended_folder = 'PSI1.0/annotations/cognitive_annotation_extended'
+    extended_folder = 'PSI2.0_TrainVal/annotations/cognitive_annotation_extended'
 
     for video_name in sorted(video_list):
         try:
@@ -149,10 +146,7 @@ def get_intent_des(db, vname, pid, split_inds, cog_annt):
 def update_db_annotations(db, db_log, args):
     dataroot = args.dataset_root_path
     # key_frame_folder = 'cognitive_annotation_key_frame'
-    if args.dataset == 'PSI2.0':
-        extended_folder = 'PSI2.0_TrainVal/annotations/cognitive_annotation_extended'
-    elif args.dataset == 'PSI1.0':
-        extended_folder = 'PSI1.0/annotations/cognitive_annotation_extended'
+    extended_folder = 'PSI2.0_TrainVal/annotations/cognitive_annotation_extended'
 
     video_list = sorted(db.keys())
     for video_name in video_list:
