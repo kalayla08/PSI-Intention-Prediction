@@ -10,12 +10,13 @@ FloatTensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 LongTensor = torch.cuda.LongTensor if cuda else torch.LongTensor
 
 def train_intent(model, optimizer, scheduler, train_loader, val_loader, args, recorder, writer):
-    pos_weight = torch.tensor(args.intent_positive_weight).to(device) # n_neg_class_samples(5118)/n_pos_class_samples(11285)
+    pos_weight = torch.tensor(args.intent_positive_weight).to(device)
     criterions = {
         'BCEWithLogitsLoss': torch.nn.BCEWithLogitsLoss(reduction='none', pos_weight=pos_weight).to(device),
         'MSELoss': torch.nn.MSELoss(reduction='none').to(device),
         'BCELoss': torch.nn.BCELoss().to(device),
         'CELoss': torch.nn.CrossEntropyLoss(),
+        'CrossEntropyLoss': torch.nn.CrossEntropyLoss(),
     }
     epoch_loss = {'loss_intent': [], 'loss_traj': []}
 
@@ -51,7 +52,7 @@ def train_intent_epoch(epoch, model, optimizer, criterions, epoch_loss, dataload
 
         # 1. intent loss
         loss_intent = 0
-        if args.intent_type == 'mean' and args.intent_num == 2: # BCEWithLogitsLoss
+        if args.intent_type == 'mean' and args.intent_num == 2:  # BCEWithLogitsLoss
             gt_intent = data['intention_binary'][:, args.observe_length].type(FloatTensor)
             gt_intent_prob = data['intention_prob'][:, args.observe_length].type(FloatTensor)
 
@@ -67,7 +68,7 @@ def train_intent_epoch(epoch, model, optimizer, criterions, epoch_loss, dataload
                     else:
                         mask = gt_consensus
                     loss_intent_bce = torch.mean(torch.mul(mask, loss_intent_bce))
-                else: # -1.0, not use reweigh and filter
+                else:  # -1.0, not use reweigh and filter
                     loss_intent_bce = torch.mean(loss_intent_bce)
                 batch_losses['loss_intent_bce'].append(loss_intent_bce.item())
                 loss_intent += loss_intent_bce
@@ -78,13 +79,13 @@ def train_intent_epoch(epoch, model, optimizer, criterions, epoch_loss, dataload
                 if args.intent_disagreement != -1.0:
                     mask = (gt_consensus > args.intent_disagreement) * gt_consensus
                     loss_intent_mse = torch.mean(torch.mul(mask, loss_intent_mse))
-                else: # -1.0, not use reweigh and filter
+                else:  # -1.0, not use reweigh and filter
                     loss_intent_mse = torch.mean(loss_intent_mse)
 
                 batch_losses['loss_intent_mse'].append(loss_intent_mse.item())
                 loss_intent += loss_intent_mse
 
-        elif args.intent_type == 'major' and args.intent_num == 3: # CrossEntropyLoss for 3 classes
+        elif args.intent_type == 'major' and args.intent_num == 3:  # CrossEntropyLoss for 3 classes
             gt_intent = data['intention_binary'][:, args.observe_length].type(LongTensor)
             loss_intent = criterions['CELoss'](intent_logit, gt_intent)
             batch_losses['loss_intent_ce'].append(loss_intent.item())
@@ -103,6 +104,10 @@ def train_intent_epoch(epoch, model, optimizer, criterions, epoch_loss, dataload
                   f"loss_intent = {np.mean(batch_losses['loss_intent']): .4f}")
 
         intent_prob = torch.sigmoid(intent_logit)
+
+        # Ajustement des dimensions
+        gt_intent_prob = gt_intent_prob.unsqueeze(1) if gt_intent_prob.dim() == 1 else gt_intent_prob
+        intent_prob = intent_prob.unsqueeze(1) if intent_prob.dim() == 1 else intent_prob
 
         recorder.train_intent_batch_update(itern, data, gt_intent.detach().cpu().numpy(),
                                            gt_intent_prob.detach().cpu().numpy(),
