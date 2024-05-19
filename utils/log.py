@@ -6,15 +6,14 @@ import json
 
 
 class RecordResults():
-    def __init__(self, args=None, intent=True, traj=True, reason=False, evidential=False,
-                 extract_prediction=False):
+    def __init__(self, args=None, intent=True, traj=True, reason=False, evidential=False, extract_prediction=False):
         self.args = args
         self.save_output = extract_prediction
         self.intent = intent
         self.traj = traj
         self.reason = reason
         self.evidential = evidential
-
+        
         self.all_train_results = {}
         self.all_eval_results = {}
         self.all_val_results = {}
@@ -58,58 +57,43 @@ class RecordResults():
                     self.epoch, self.args.epochs, itern, self.nitern, self.log_loss_total.avg,
                     self.log_loss_intent.avg))
 
-                
-                
-                
     def train_intent_epoch_calculate(self, writer):
         print('----------- Training results: ------------------------------------ ')
         if self.intention_pred:
-            # Vérifier les dimensions et le type des données
-            print(f"intention_gt type: {type(self.intention_gt)}, shape: {np.array(self.intention_gt).shape}")
-            print(f"intention_prob_gt type: {type(self.intention_prob_gt)}, shape: {np.array(self.intention_prob_gt).shape}")
-            print(f"intention_pred type: {type(self.intention_pred)}, shape: {np.array(self.intention_pred).shape}")
-
-            # Convert lists to numpy arrays and ensure correct dimensions
             lbl_target = np.array(self.intention_gt).flatten()
             lbl_target_prob = np.array(self.intention_prob_gt).reshape(-1, self.args.intent_num)
             lbl_pred = np.array(self.intention_pred).reshape(-1, self.args.intent_num)
 
-            # Vérifier les formes des tableaux après conversion
-            print(f"lbl_target shape: {lbl_target.shape}")
-            print(f"lbl_target_prob shape: {lbl_target_prob.shape}")
-            print(f"lbl_pred shape: {lbl_pred.shape}")
+            try:
+                intent_results = evaluate_intent(lbl_target, lbl_target_prob, lbl_pred, self.args)
+                self.train_epoch_results['intent_results'] = intent_results
+            except ValueError as e:
+                print(f"Erreur lors de l'évaluation de l'intention: {e}")
+                self.train_epoch_results['intent_results'] = {}
 
-            intent_results = evaluate_intent(lbl_target, lbl_target_prob, lbl_pred, self.args)
-            self.train_epoch_results['intent_results'] = intent_results
-
-            if 'ConfusionMatrix' in intent_results:
-                # Vérifier les dimensions de la matrice de confusion
-                confusion_matrix = intent_results['ConfusionMatrix']
-                if len(confusion_matrix) == self.args.intent_num and all(len(row) == self.args.intent_num for row in confusion_matrix):
-                    print("La matrice de confusion a les bonnes dimensions.")
+            if 'ConfusionMatrix' in self.train_epoch_results['intent_results']:
+                confusion_matrix = self.train_epoch_results['intent_results']['ConfusionMatrix']
+                if confusion_matrix is not None:
+                    for i in range(len(confusion_matrix)):
+                        for j in range(len(confusion_matrix[i])):
+                            val = confusion_matrix[i][j]
+                            writer.add_scalar(f'ConfusionMatrix/train{i}_{j}', val, self.epoch)
                 else:
-                    print("Erreur: dimensions incorrectes de la matrice de confusion.")
+                    print("Erreur: la matrice de confusion est None.")
             else:
                 print("Erreur: la matrice de confusion n'a pas été calculée.")
         else:
             print("Pas de données d'intention pour calculer les résultats.")
-
-        print('----------------------------------------------------------- ')
 
         self.all_train_results[str(self.epoch)] = self.train_epoch_results
         self.log_info(epoch=self.epoch, info=self.train_epoch_results, filename='train')
 
         if writer:
             for key in ['MSE', 'Acc', 'F1', 'mAcc']:
-                val = self.train_epoch_results['intent_results'][key]
-                writer.add_scalar(f'Train/Results/{key}', val, self.epoch)
+                if key in self.train_epoch_results.get('intent_results', {}):
+                    val = self.train_epoch_results['intent_results'][key]
+                    writer.add_scalar(f'Train/Results/{key}', val, self.epoch)
 
-            if 'ConfusionMatrix' in self.train_epoch_results['intent_results']:
-                confusion_matrix = self.train_epoch_results['intent_results']['ConfusionMatrix']
-                for i in range(len(confusion_matrix)):
-                    for j in range(len(confusion_matrix[i])):
-                        val = confusion_matrix[i][j]
-                        writer.add_scalar(f'ConfusionMatrix/train{i}_{j}', val, self.epoch)
 
     def eval_epoch_reset(self, epoch, nitern, intent=True, traj=True, args=None):
         self.frames_list = []
@@ -145,28 +129,32 @@ class RecordResults():
         print('----------- Evaluate results: ------------------------------------ ')
 
         if self.intention_pred:
-            intent_results = evaluate_intent(np.array(self.intention_gt), np.array(self.intention_prob_gt),
-                                             np.array(self.intention_pred), self.args)
-            self.eval_epoch_results['intent_results'] = intent_results
+            try:
+                intent_results = evaluate_intent(np.array(self.intention_gt), np.array(self.intention_prob_gt),
+                                                 np.array(self.intention_pred), self.args)
+                self.eval_epoch_results['intent_results'] = intent_results
+            except ValueError as e:
+                print(f"Erreur lors de l'évaluation de l'intention: {e}")
+                self.eval_epoch_results['intent_results'] = {}
         else:
             print("Pas de données d'intention pour calculer les résultats d'évaluation.")
 
-        print('----------------------finished evalcal------------------------------------- ')
         self.all_eval_results[str(self.epoch)] = self.eval_epoch_results
         self.log_info(epoch=self.epoch, info=self.eval_epoch_results, filename='eval')
-        print('log info finished')
 
         if writer:
-            for key in ['MSE', 'Acc', 'F1', 'mAcc']:
-                val = self.eval_epoch_results['intent_results'][key]
-                writer.add_scalar(f'Eval/Results/{key}', val, self.epoch)
+            for key in ['MSE', 'Acc', 'F1','Precision', 'Recall', 'mAcc']:
+                if key in self.eval_epoch_results.get('intent_results', {}):
+                    val = self.eval_epoch_results['intent_results'][key]
+                    writer.add_scalar(f'Eval/Results/{key}', val, self.epoch)
 
-            if 'ConfusionMatrix' in self.eval_epoch_results['intent_results']:
+            if 'ConfusionMatrix' in self.eval_epoch_results.get('intent_results', {}):
                 confusion_matrix = self.eval_epoch_results['intent_results']['ConfusionMatrix']
-                for i in range(len(confusion_matrix)):
-                    for j in range(len(confusion_matrix[i])):
-                        val = confusion_matrix[i][j]
-                        writer.add_scalar(f'ConfusionMatrix/eval{i}_{j}', val, self.epoch)
+                if confusion_matrix is not None:
+                    for i in range(len(confusion_matrix)):
+                        for j in range(len(confusion_matrix[i])):
+                            val = confusion_matrix[i][j]
+                            writer.add_scalar(f'ConfusionMatrix/eval{i}_{j}', val, self.epoch)
 
     def log_msg(self, msg: str, filename: str = None):
         if not filename:
@@ -189,4 +177,5 @@ class RecordResults():
                         f.write(k + ": " + str(info[key][k]) + "\n")
                 else:
                     f.write(str(info[key]) + "\n")
-            self.log_msg(msg='.................................................'.format(self.epoch), filename=save_to_file)
+
+            self.log_msg(msg='.................................................', filename=save_to_file)
