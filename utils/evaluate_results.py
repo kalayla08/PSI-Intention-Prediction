@@ -3,6 +3,7 @@ from sklearn.metrics import mean_squared_error, confusion_matrix, classification
 import numpy as np
 from tabulate import tabulate
 
+
 def evaluate_intent(groundtruth='', prediction='', args=None):
     with open(groundtruth, 'r') as f:
         gt_intent = json.load(f)
@@ -35,7 +36,7 @@ def evaluate_intent(groundtruth='', prediction='', args=None):
 def measure_intent_prediction(target, prediction, args):
     print("Evaluating Intent ...")
     results = {
-        #'MSE': 0,
+        'MSE': 0,
         'Acc': 0,
         'F1': 0,
         'Precision': 0,
@@ -45,19 +46,16 @@ def measure_intent_prediction(target, prediction, args):
     }
 
     bs = target.shape[0]
-    lbl_target = np.argmax(target, axis=-1) # bs x ts
     lbl_target = target # bs
-    lbl_target_prob = target_prob
     lbl_pred = np.round(prediction) # bs, use 0.5 as threshold
 
-    
-
-    MSE = np.mean(np.square(lbl_target_prob - prediction))
+    # Calculate MSE
+    MSE = mean_squared_error(lbl_target, lbl_pred)
 
     # Hard label evaluation - acc, f1, precision, recall
     Acc = accuracy_score(lbl_target, lbl_pred) # calculate acc for all samples
     F1_score = f1_score(lbl_target, lbl_pred, average='macro')
-    Precision = precision_score(lbl_target, lbl_pred, average='macro', zero_division=1)
+    Precision = precision_score(lbl_target, lbl_pred, average='macro')
     Recall = recall_score(lbl_target, lbl_pred, average='macro')
 
     if args.intent_num == 3:
