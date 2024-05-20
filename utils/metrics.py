@@ -2,13 +2,6 @@ from sklearn.metrics import mean_squared_error, confusion_matrix, accuracy_score
 import numpy as np
 
 def evaluate_intent(target, target_prob, prediction, args):
-    """
-    Evaluate the intent prediction performance.
-    
-    :param target: (bs x 1), hard label; target_prob: soft probability, 0-1, agreement mean([0, 0.5, 1]).
-    :param prediction: (bs), sigmoid probability, 1-dim, should use 0.5 as threshold
-    :return: Dictionary with evaluation metrics.
-    """
     print("Evaluating Intent ...")
     results = {
         'MSE': 0,
@@ -20,30 +13,23 @@ def evaluate_intent(target, target_prob, prediction, args):
         'ConfusionMatrix': [[]],
     }
 
-    # Convert inputs to numpy arrays if they are not already
     target = np.array(target)
     target_prob = np.array(target_prob)
     prediction = np.array(prediction)
 
-    print(f"target_prob shape: {target_prob.shape}")
-    print(f"prediction shape: {prediction.shape}")
+    if args.intent_num == 3:
+        # Convert target to one-hot encoding if necessary
+        if target.ndim == 1:
+            target_one_hot = np.zeros((target.size, prediction.shape[1]))
+            target_one_hot[np.arange(target.size), target] = 1
+        else:
+            target_one_hot = target
 
-    if len(target_prob.shape) == 1:
-        target_prob = target_prob.reshape(-1, 1)
-    if len(prediction.shape) == 1:
-        prediction = prediction.reshape(-1, 1)
-
-    if target_prob.shape[1] != prediction.shape[1]:
-        print(f"Erreur de dimension: target_prob shape: {target_prob.shape}, prediction shape: {prediction.shape}")
-        raise ValueError("Les dimensions de target_prob et prediction ne sont pas cohérentes.")
-    
-    # Assuming binary classification, take the second column (probability of class 1) if shape is 2
-    if target_prob.shape[1] == 2:
-        target_prob = target_prob[:, 1]
-        prediction = prediction[:, 1]
-
-    lbl_pred = np.round(prediction).astype(int)
-    lbl_target = target.astype(int)
+        lbl_pred = np.argmax(prediction, axis=1)
+        lbl_target = np.argmax(target_one_hot, axis=1)
+    else:
+        lbl_pred = np.round(prediction).astype(int)
+        lbl_target = target.astype(int)
 
     MSE = mean_squared_error(target_prob, prediction)
     Acc = accuracy_score(lbl_target, lbl_pred)
@@ -68,6 +54,7 @@ def evaluate_intent(target, target_prob, prediction, args):
     results['ConfusionMatrix'] = intent_matrix
 
     return results
+
 
 def shannon(data):
     """
