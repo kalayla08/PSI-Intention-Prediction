@@ -16,7 +16,6 @@ def train_intent(model, optimizer, scheduler, train_loader, val_loader, args, re
         'MSELoss': torch.nn.MSELoss(reduction='none').to(device),
         'BCELoss': torch.nn.BCELoss().to(device),
         'CELoss': torch.nn.CrossEntropyLoss(),
-        'CrossEntropyLoss': torch.nn.CrossEntropyLoss(),
     }
     epoch_loss = {'loss_intent': [], 'loss_traj': []}
 
@@ -27,11 +26,11 @@ def train_intent(model, optimizer, scheduler, train_loader, val_loader, args, re
         scheduler.step()
 
         if epoch % 1 == 0:
-            print(f"Train epoch {epoch}/{args.epochs} | epoch loss: "
+            print(f"Époque d'entraînement {epoch}/{args.epochs} | perte de l'époque : "
                   f"loss_intent = {np.mean(epoch_loss['loss_intent']): .4f}")
 
         if (epoch + 1) % args.val_freq == 0:
-            print(f"Validate at epoch {epoch}")
+            print(f"Validation à l'époque {epoch}")
             niters = len(val_loader)
             recorder.eval_epoch_reset(epoch, niters)
             validate_intent(epoch, model, val_loader, args, recorder, writer)
@@ -46,13 +45,11 @@ def train_intent_epoch(epoch, model, optimizer, criterions, epoch_loss, dataload
     for itern, data in enumerate(dataloader):
         optimizer.zero_grad()
         intent_logit = model(data)
-
-        # Initialisation de gt_intent_prob
+        
         gt_intent_prob = torch.zeros_like(intent_logit)
-
-        # 1. intent loss
+        
         loss_intent = 0
-        if args.intent_type == 'mean' and args.intent_num == 2:  # BCEWithLogitsLoss
+        if args.intent_type == 'mean' and args.intent_num == 2: 
             gt_intent = data['intention_binary'][:, args.observe_length].type(FloatTensor)
             gt_intent_prob = data['intention_prob'][:, args.observe_length].type(FloatTensor)
 
@@ -68,7 +65,7 @@ def train_intent_epoch(epoch, model, optimizer, criterions, epoch_loss, dataload
                     else:
                         mask = gt_consensus
                     loss_intent_bce = torch.mean(torch.mul(mask, loss_intent_bce))
-                else:  # -1.0, not use reweigh and filter
+                else:
                     loss_intent_bce = torch.mean(loss_intent_bce)
                 batch_losses['loss_intent_bce'].append(loss_intent_bce.item())
                 loss_intent += loss_intent_bce
@@ -79,13 +76,13 @@ def train_intent_epoch(epoch, model, optimizer, criterions, epoch_loss, dataload
                 if args.intent_disagreement != -1.0:
                     mask = (gt_consensus > args.intent_disagreement) * gt_consensus
                     loss_intent_mse = torch.mean(torch.mul(mask, loss_intent_mse))
-                else:  # -1.0, not use reweigh and filter
+                else:
                     loss_intent_mse = torch.mean(loss_intent_mse)
 
                 batch_losses['loss_intent_mse'].append(loss_intent_mse.item())
                 loss_intent += loss_intent_mse
 
-        elif args.intent_type == 'major' and args.intent_num == 3:  # CrossEntropyLoss for 3 classes
+        elif args.intent_type == 'major' and args.intent_num == 3:
             gt_intent = data['intention_binary'][:, args.observe_length].type(LongTensor)
             loss_intent = criterions['CELoss'](intent_logit, gt_intent)
             batch_losses['loss_intent_ce'].append(loss_intent.item())
@@ -95,20 +92,18 @@ def train_intent_epoch(epoch, model, optimizer, criterions, epoch_loss, dataload
         loss.backward()
         optimizer.step()
 
-        # Record results
         batch_losses['loss'].append(loss.item())
         batch_losses['loss_intent'].append(loss_intent.item())
 
         if itern % args.print_freq == 0:
-            print(f"Epoch {epoch}/{args.epochs} | Batch {itern}/{niters} - "
+            print(f"Époque {epoch}/{args.epochs} | Lot {itern}/{niters} - "
                   f"loss_intent = {np.mean(batch_losses['loss_intent']): .4f}")
-
-        intent_prob = torch.sigmoid(intent_logit)
-
-        # Ajustement des dimensions
-        gt_intent_prob = gt_intent_prob.unsqueeze(1) if gt_intent_prob.dim() == 1 else gt_intent_prob
-        intent_prob = intent_prob.unsqueeze(1) if intent_prob.dim() == 1 else intent_prob
-
+        
+        if args.intent_num == 3:
+            intent_prob = torch.softmax(intent_logit, dim=1)
+        else:
+            intent_prob = torch.sigmoid(intent_logit)
+        
         recorder.train_intent_batch_update(itern, data, gt_intent.detach().cpu().numpy(),
                                            gt_intent_prob.detach().cpu().numpy(),
                                            intent_prob.detach().cpu().numpy(),
@@ -117,7 +112,6 @@ def train_intent_epoch(epoch, model, optimizer, criterions, epoch_loss, dataload
     epoch_loss['loss_intent'].append(np.mean(batch_losses['loss_intent']))
 
     recorder.train_intent_epoch_calculate(writer)
-    # write scalar to tensorboard
     writer.add_scalar(f'LearningRate', optimizer.param_groups[-1]['lr'], epoch)
     for key, val in batch_losses.items():
         writer.add_scalar(f'Losses/{key}', np.mean(val), epoch)
