@@ -24,7 +24,7 @@ def get_lstm_intent_bbox(args):
         'enc_out_dim': 64,
         'dec_in_emb_dim': None,  # encoder output + bbox
         'dec_out_dim': 64,
-        'output_dim': 1,  # intent prediction, output logits, add activation later
+        'output_dim':  1 if args.intent_num == 2 else 3,  # intent prediction, output logits, add activation later
         'n_layers': 1,
         'dropout': 0.5,
         'observe_length': args.observe_length,  # 15
