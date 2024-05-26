@@ -71,7 +71,7 @@ if __name__ == '__main__':
     # intent prediction
     
     args.intent_num = 3  # 3 for 'major' vote; 2 for mean intent
-    args.intent_type = 'major'# >= 0.5 --> 1 (cross); < 0.5 --> 0 (not cross)
+    args.intent_type = 'major'#mean >= 0.5 --> 1 (cross); < 0.5 --> 0 (not cross)
     args.intent_loss = None #['bce']
     args.intent_disagreement = 1.0 # -1: not use disagreement 1: use disagreement to reweigh samples
 
