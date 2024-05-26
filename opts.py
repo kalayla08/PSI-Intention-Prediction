@@ -17,7 +17,7 @@ def get_opts():
                         help='Filename of the database created based on the cv_annotations and nlp_annotations')
     parser.add_argument('--fps', type=int, default=30,
                         help=' fps of original video, PSI and PEI == 30.')
-    parser.add_argument('--seq_overlap_rate', type=float, default=1, # 1 means every stride is 1 frame
+    parser.add_argument('--seq_overlap_rate', type=float, default=0.9, # 1 means every stride is 1 frame
                         help='Train/Val rate of the overlap frames of slideing windown, (1-rate)*seq_length is the step size')
     parser.add_argument('--test_seq_overlap_rate', type=float, default=1, # 1 means every stride is 1 frame
                         help='Test overlap rate of the overlap frames of slideing windown, (1-rate)*seq_length is the step size')
