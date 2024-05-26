@@ -10,7 +10,7 @@ FloatTensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 LongTensor = torch.cuda.LongTensor if cuda else torch.LongTensor
 
 def train_intent(model, optimizer, scheduler, train_loader, val_loader, args, recorder, writer):
-    pos_weight = torch.tensor(args.intent_positive_weight).to(device)
+    pos_weight = torch.tensor(args.intent_positive_weight).to(device) # n_neg_class_samples(5118)/n_pos_class_samples(11285)
     criterions = {
         'BCEWithLogitsLoss': torch.nn.BCEWithLogitsLoss(reduction='none', pos_weight=pos_weight).to(device),
         'MSELoss': torch.nn.MSELoss(reduction='none').to(device),
@@ -26,14 +26,20 @@ def train_intent(model, optimizer, scheduler, train_loader, val_loader, args, re
         scheduler.step()
 
         if epoch % 1 == 0:
-            print(f"Époque d'entraînement {epoch}/{args.epochs} | perte de l'époque : "
+            print(f"Train epoch {epoch}/{args.epochs} | epoch loss: "
                   f"loss_intent = {np.mean(epoch_loss['loss_intent']): .4f}")
 
         if (epoch + 1) % args.val_freq == 0:
-            print(f"Validation à l'époque {epoch}")
+            print(f"Validate at epoch {epoch}")
             niters = len(val_loader)
             recorder.eval_epoch_reset(epoch, niters)
             validate_intent(epoch, model, val_loader, args, recorder, writer)
+
+            # result_path = os.path.join(args.checkpoint_path, 'results', f'epoch_{epoch}')
+            # if not os.path.isdir(result_path):
+            #     os.makedirs(result_path)
+            # recorder.save_results(prefix='')
+            # torch.save(model.state_dict(), result_path + f'/state_dict.pth')
 
         torch.save(model.state_dict(), args.checkpoint_path + f'/latest.pth')
 
@@ -92,18 +98,14 @@ def train_intent_epoch(epoch, model, optimizer, criterions, epoch_loss, dataload
         loss.backward()
         optimizer.step()
 
+        # Record results
         batch_losses['loss'].append(loss.item())
         batch_losses['loss_intent'].append(loss_intent.item())
 
         if itern % args.print_freq == 0:
-            print(f"Époque {epoch}/{args.epochs} | Lot {itern}/{niters} - "
+            print(f"Epoch {epoch}/{args.epochs} | Batch {itern}/{niters} - "
                   f"loss_intent = {np.mean(batch_losses['loss_intent']): .4f}")
-        
-        if args.intent_num == 3:
-            intent_prob = torch.softmax(intent_logit, dim=1)
-        else:
-            intent_prob = torch.sigmoid(intent_logit)
-        
+        intent_prob = torch.sigmoid(intent_logit)
         recorder.train_intent_batch_update(itern, data, gt_intent.detach().cpu().numpy(),
                                            gt_intent_prob.detach().cpu().numpy(),
                                            intent_prob.detach().cpu().numpy(),
@@ -112,6 +114,7 @@ def train_intent_epoch(epoch, model, optimizer, criterions, epoch_loss, dataload
     epoch_loss['loss_intent'].append(np.mean(batch_losses['loss_intent']))
 
     recorder.train_intent_epoch_calculate(writer)
+    # write scalar to tensorboard
     writer.add_scalar(f'LearningRate', optimizer.param_groups[-1]['lr'], epoch)
     for key, val in batch_losses.items():
         writer.add_scalar(f'Losses/{key}', np.mean(val), epoch)
