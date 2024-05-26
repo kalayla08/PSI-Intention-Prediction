@@ -41,7 +41,9 @@ def main(args):
     get_intent_gt(val_loader, val_gt_file, args)
 
     predict_intent(model, val_loader, args, dset='val')
-    evaluate_intent(val_gt_file, args.checkpoint_path + '/results/val_intent_pred', args)
+    #evaluate_intent(val_gt_file, args.checkpoint_path + '/results/val_intent_pred.json', args)
+    evaluate_intent(val_gt_file, os.path.join(args.checkpoint_path, 'results', 'val_intent_pred.json'), args)
+
 
     # ''' 4. Test '''
     # test_gt_file = './test_gt/test_intent_gt.json'
@@ -67,13 +69,14 @@ if __name__ == '__main__':
         args.intent_model = True
 
     # intent prediction
+    
     args.intent_num = 3  # 3 for 'major' vote; 2 for mean intent
-    args.intent_type = 'major' # >= 0.5 --> 1 (cross); < 0.5 --> 0 (not cross)
+    args.intent_type = 'major'# >= 0.5 --> 1 (cross); < 0.5 --> 0 (not cross)
     args.intent_loss = None #['bce']
-    args.intent_disagreement = -1.0 # -1: not use disagreement 1: use disagreement to reweigh samples
-    args.intent_positive_weight = 0.5  # Reweigh BCE loss of 0/1, 0.5 = count(-1) / count(1)
+    args.intent_disagreement = 1.0 # -1: not use disagreement 1: use disagreement to reweigh samples
 
-    args.seq_overlap_rate = 1 # overlap rate for trian/val set
+    
+    args.seq_overlap_rate = 0.9 # overlap rate for trian/val set
     args.test_seq_overlap_rate = 1 # overlap for test set. if == 1, means overlap is one frame, following PIE
     args.observe_length = 15
     if args.task_name == 'ped_intent':
