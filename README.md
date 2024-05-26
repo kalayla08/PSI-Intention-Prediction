@@ -159,9 +159,11 @@ python main.py
 
 (4) Evaluation Metrics
 ```buildoutcfg
+MSE: Mean Squared Error
 Acc: overall accuracy
-mAcc: class-wise mean accuracy
 F1: F1 score
+Precision
+Recall
 ```
 <!-- |Dataset|split|Acc|mAcc|F1 |
 |:---|:---|:---|:---|:---|
@@ -179,7 +181,7 @@ Tensorboard 2.10.1
 
 (5) Notes
 
-This baseline only take the bounding boxes sequence of the target pedestrian as input. However, PSI contains various
+This baseline take the bounding boxes sequence of the target pedestrian and the image context as input. However, PSI contains various
 multi-modal annotations and information available for further exploration to contribute to the intent prediction. E.g.,
 Video sequence, other road users bounding boxes, detailed text-based explanation annotations, etc.
 
@@ -192,5 +194,5 @@ Video sequence, other road users bounding boxes, detailed text-based explanation
 
 ### Contact 
 
-Please feel free to send any questions or comments to [psi.intent.benchmark@gmail.com](psi.intent.benchmark@gmail.com)
+Please feel free to send any questions or comments to [laylakaabouche@gmail.com]
 
