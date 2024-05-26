@@ -28,7 +28,7 @@ def main(args):
 
 def get_intent_gt(dataloader, output_path, args):
     dt = {}
-    for itern, data in enumerate(dataloader):
+    for itern, data in enumerate(dataloader): 
         # if args.intent_type == 'mean' and args.intent_num == 2:  # BCEWithLogitsLoss
         #     gt_intent = data['intention_binary'][:, args.observe_length]
         #     gt_intent_prob = data['intention_prob'][:, args.observe_length]
