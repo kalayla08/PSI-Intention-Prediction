@@ -20,7 +20,7 @@ class LSTMIntBbox(nn.Module):
 
         # Initialisation du backbone avec une instance du modèle spécifié
         if self.args.backbone == 'resnet50':
-            self.backbone = models.resnet50(weights=ResNet50_Weights.DEFAULT)
+            self.backbone = models.resnet50(weights=ResNet50_Weights.IMAGENET1K_V1)
         elif self.args.backbone == 'vgg16':
             self.backbone = models.vgg16(weights=VGG16_Weights.DEFAULT)
         else:
@@ -37,10 +37,17 @@ class LSTMIntBbox(nn.Module):
 
         # 1. backbone feature (to be implemented for images)
         if self.backbone is not None:
-            pass  # If required, add the image processing part here
+            if self.args.backbone == 'resnet50':
+                self.backbone = models.resnet50(weights=ResNet50_Weights.IMAGENET1K_V1)
+            elif self.args.backbone == 'vgg16':
+                self.backbone = models.vgg16(weights=VGG16_Weights.DEFAULT)
+            else:
+                self.backbone = None
 
         # 2. intent prediction
         intent_pred = self.intent_predictor(bbox, dec_input_emb)
+
+
         return intent_pred.squeeze()
 
     def build_optimizer(self, args):
@@ -83,12 +90,24 @@ class LSTMIntBbox(nn.Module):
         dec_input_emb = None  # as the additional emb for intent predictor
         assert bbox.shape[1] == self.observe_length
 
-        # 1. backbone feature (to be implemented if needed)
         if self.backbone is not None:
-            pass  # If required, add the image processing part here
+            if self.args.backbone == 'resnet50':
+                self.backbone = models.resnet50(weights=ResNet50_Weights.IMAGENET1K_V1)
+            elif self.args.backbone == 'vgg16':
+                self.backbone = models.vgg16(weights=VGG16_Weights.DEFAULT)
+            else:
+                self.backbone = None
 
         # 2. intent prediction
+        
         intent_pred = self.intent_predictor(bbox, dec_input_emb)
+
+        # Applying appropriate activation based on intent_num
+        #if self.args.intent_num == 2:
+            #intent_pred = torch.sigmoid(intent_pred)  # For binary classification
+        #elif self.args.intent_num == 3:
+            #intent_pred = torch.softmax(intent_pred)  # For multi-class classification
+
         return intent_pred.squeeze()
 
 class LSTMInt(nn.Module):
@@ -97,6 +116,8 @@ class LSTMInt(nn.Module):
 
         enc_in_dim = model_opts['enc_in_dim']
         enc_out_dim = model_opts['enc_out_dim']
+        # dec_in_emb_dim = model_opts['dec_in_emb_dim']
+        # dec_out_dim = model_opts['dec_out_dim']
         output_dim = model_opts['output_dim']
         n_layers = model_opts['n_layers']
         dropout = model_opts['dropout']
@@ -120,23 +141,35 @@ class LSTMInt(nn.Module):
             nn.ReLU(),
             nn.Dropout(dropout),
             nn.Linear(16, self.output_dim)
-        )
 
-        # Activation is handled separately
-        self.module_list = [self.encoder, self.fc]
+        )
+        
+        if model_opts['output_activation'] == 'tanh':
+            self.activation = nn.Tanh()
+        elif model_opts['output_activation'] == 'sigmoid':
+            self.activation = nn.Sigmoid()
+        elif model_opts['output_activation'] == 'softmax':
+            self.activation = nn.Softmax()
+        else:
+            self.activation = nn.Identity()
+
+        self.module_list = [self.encoder, self.fc] #, self.fc_emb, self.decoder
+        # self._reset_parameters()
+        # assert self.enc_out_dim == self.dec_out_dim
 
     def forward(self, enc_input, dec_input_emb=None):
         enc_output, (enc_hc, enc_nc) = self.encoder(enc_input)
-        enc_last_output = enc_output[:, -1, :]  # bs x hidden_dim
+        # because 'batch_first=True'
+        # enc_output: bs x ts x (1*hiden_dim)*enc_hidden_dim --- only take the last output, concatenated with dec_input_emb, as input to decoder
+        # enc_hc:  (n_layer*n_directions) x bs x enc_hidden_dim
+        # enc_nc:  (n_layer*n_directions) x bs x enc_hidden_dim
+        enc_last_output = enc_output[:, -1:, :]  # bs x 1 x hidden_dim
         output = self.fc(enc_last_output)
+        outputs = output.unsqueeze(1) # bs x 1 --> bs x 1 x 1
+        return outputs  # shape: bs x predict_length x output_dim, no activation
 
-        if self.args.intent_num == 2:
-            return torch.sigmoid(output)  # For binary classification
-        elif self.args.intent_num == 3:
-            return torch.softmax(output, dim=1)  # For multi-class classification
-        else:
-            return output  # No activation
 
     def _reset_parameters(self):
+        # Original Transformer initialization, see PyTorch documentation
         nn.init.xavier_uniform_(self.fc.weight)
         self.fc.bias.data.fill_(0)
