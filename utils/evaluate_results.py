@@ -84,3 +84,4 @@ def print_confusion_matrix(conf_matrix, args):
         table.append([class_names[i]] + row.tolist())
 
     print(tabulate(table, headers=headers, tablefmt="grid"))
+ 
