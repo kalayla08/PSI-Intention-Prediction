@@ -22,7 +22,7 @@ class LSTMIntBbox(nn.Module):
         if self.args.backbone == 'resnet50':
             self.backbone = models.resnet50(weights=ResNet50_Weights.IMAGENET1K_V1)
         elif self.args.backbone == 'vgg16':
-            self.backbone = models.vgg16(weights=VGG16_Weights.DEFAULT)
+            self.backbone = models.vgg16(weights=VGG16_Weights.IMAGENET1K_V1)
         else:
             self.backbone = None
             
@@ -40,7 +40,7 @@ class LSTMIntBbox(nn.Module):
             if self.args.backbone == 'resnet50':
                 self.backbone = models.resnet50(weights=ResNet50_Weights.IMAGENET1K_V1)
             elif self.args.backbone == 'vgg16':
-                self.backbone = models.vgg16(weights=VGG16_Weights.DEFAULT)
+                self.backbone = models.vgg16(weights=VGG16_Weights.IMAGENET1K_V1)
             else:
                 self.backbone = None
 
@@ -94,7 +94,7 @@ class LSTMIntBbox(nn.Module):
             if self.args.backbone == 'resnet50':
                 self.backbone = models.resnet50(weights=ResNet50_Weights.IMAGENET1K_V1)
             elif self.args.backbone == 'vgg16':
-                self.backbone = models.vgg16(weights=VGG16_Weights.DEFAULT)
+                self.backbone = models.vgg16(weights=VGG16_Weights.IMAGENET1K_V1)
             else:
                 self.backbone = None
 
