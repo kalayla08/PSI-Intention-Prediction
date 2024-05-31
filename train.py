@@ -14,7 +14,6 @@ def train_intent(model, optimizer, scheduler, train_loader, val_loader, args, re
     criterions = {
         'BCEWithLogitsLoss': torch.nn.BCEWithLogitsLoss(reduction='none', pos_weight=pos_weight).to(device),
         'MSELoss': torch.nn.MSELoss(reduction='none').to(device),
-        'BCELoss': torch.nn.BCELoss().to(device),
         'CELoss': torch.nn.CrossEntropyLoss(),
     }
     epoch_loss = {'loss_intent': [], 'loss_traj': []}
@@ -35,11 +34,6 @@ def train_intent(model, optimizer, scheduler, train_loader, val_loader, args, re
             recorder.eval_epoch_reset(epoch, niters)
             validate_intent(epoch, model, val_loader, args, recorder, writer)
 
-            # result_path = os.path.join(args.checkpoint_path, 'results', f'epoch_{epoch}')
-            # if not os.path.isdir(result_path):
-            #     os.makedirs(result_path)
-            # recorder.save_results(prefix='')
-            # torch.save(model.state_dict(), result_path + f'/state_dict.pth')
 
         torch.save(model.state_dict(), args.checkpoint_path + f'/latest.pth')
 
