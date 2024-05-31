@@ -84,6 +84,7 @@ def get_intent(database, video_name, ped_id, args):
             if args.intent_num == 2:
                 for j in range(len(labels)):
                     if labels[j] == 'not_sure':
+                    
                         labels[j] = 0.5
                     elif labels[j] == 'not_cross':
                         labels[j] = 0
