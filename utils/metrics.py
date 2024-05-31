@@ -50,3 +50,4 @@ def shannon(data):
     :return: Shannon entropy
     """
     return -np.sum(data * np.log2(data))
+ 
