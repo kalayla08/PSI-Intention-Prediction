@@ -229,3 +229,4 @@ class RecordResults():
                         f.write(str(info[key]) + "\n")
             self.log_msg(msg='.................................................'.format(self.epoch), filename=savet_to_file)
 
+ 
