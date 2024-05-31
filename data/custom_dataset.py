@@ -7,7 +7,7 @@ import PIL
 from PIL import Image
 import copy
 from torch.utils.data.sampler import WeightedRandomSampler
-
+from data.process_sequence import generate_data_sequence
 
 
 class VideoDataset(torch.utils.data.Dataset):
@@ -33,54 +33,23 @@ class VideoDataset(torch.utils.data.Dataset):
         intention_binary = self.data['intention_binary'][index] # all frames intentions are returned
         intention_prob = self.data['intention_prob'][index] # all frames, 3-dimension votes probability
 
-        # reason = [np.array(ele) for ele in self.data['reason_feats'][index]]
-        # reason_origin = np.array(reason) # reason of count # all 60 frames reasons are returned
-        # reason = np.array([[1 if r > 0 else 0 for r in rs] for rs in reason]) #reason > 0 # change reason to binary{0, 1}
-        #
         disagree_score = self.data['disagree_score'][index] # all scores for all frames are returned
 
         assert len(bboxes) == self.args.max_track_size # following bboxes are used to calculate trajectory
         assert len(frame_list) == self.args.observe_length # only 15 frames is necessary
 
-        # if self.args.load_image:
-        #     images, cropped_images = self.load_images(video_id, frame_list, bboxes)
-        # else:
-        #     images, cropped_images = [], []
-
         global_featmaps, local_featmaps = self.load_features(video_ids, ped_ids, frame_list)
         reason_features = self.load_reason_features(video_ids, ped_ids, frame_list)
 
-        for f in range(len(frame_list)): #(len(bboxes)):
-            box = bboxes[f]
-            xtl, ytl, xrb, yrb = box
-
-            if self.args.task_name == 'ped_intent' or self.args.task_name == 'ped_traj':
-                bboxes[f] = [xtl, ytl, xrb, yrb]
-
-
-        if self.args.normalize_bbox == 'L2':
-            raise Exception("Bboxes nromalize is not defined!")
-        elif self.args.normalize_bbox == 'subtract_first_frame':
-            bboxes = bboxes - bboxes[:1, :] # minus the first frame bbox positions
-        else:
-            pass
-
-
-
         data = {
-            # 'cropped_images': cropped_images,
-            # 'images': images,
             'local_featmaps': local_featmaps,
             'global_featmaps': global_featmaps,
             'bboxes': bboxes,
-            # 'intention_onehot': intention_onehot,
             'intention_binary': intention_binary,
             'intention_prob': intention_prob,
             'reason_feats': reason_features,
-            # 'reason': reason,
-            # 'reason_origin': reason_origin,
             'frames': np.array([int(f) for f in frame_list]),
-            'video_id': video_ids[0], #int(video_id[0][0].split('_')[1])
+            'video_id': video_ids[0],
             'ped_id': ped_ids[0],
             'disagree_score': disagree_score
         }
@@ -133,62 +102,6 @@ class VideoDataset(torch.utils.data.Dataset):
         local_featmaps = [] if len(local_featmaps) < 1 else torch.stack(local_featmaps)
 
         return global_featmaps, local_featmaps
-
-
-    def load_images(self, video_ids, frame_list, bboxes):
-        images = []
-        cropped_images = []
-        video_name = video_ids[0]
-
-        for i in range(len(frame_list)):
-            frame_id = frame_list[i]
-            bbox = bboxes[i]
-            # load original image
-            # print(video_id, frame_list, video_name, frame_id, bbox)
-            img_path = os.path.join(self.images_path, video_name, str(frame_id).zfill(5)+'.png')
-            # print(img_path)
-            img = self.rgb_loader(img_path)
-            print(img.shape)# 2048 x 2048 x 3 --> 1280 x 720
-            # print("Original image size: ", img.shape, bbox)
-            # Image.fromarray(img).show()
-            # img.shape: H x W x C, RGB channel
-            # crop pedestrian surrounding image
-            ori_bbox = copy.deepcopy(bbox)
-
-            bbox = self.jitter_bbox(img, [bbox], self.args.crop_mode, 2.0)[0]
-
-            # x1, y1, x2, y2 = bbox
-
-            bbox = self.squarify(bbox, 1, img.shape[1])
-            bbox = list(map(int, bbox[0:4]))
-
-            cropped_img = Image.fromarray(img).crop(bbox)
-            cropped_img = np.array(cropped_img)
-            if not cropped_img.shape:
-                print("Error in crop: ", video_id[0][0], frame_id, ori_bbox, bbox)
-            cropped_img = self.img_pad(cropped_img, mode='pad_resize', size=224) # return PIL.image type
-
-            cropped_img = np.array(cropped_img)
-            # cv2.imshow(str(i), np.array(cropped_img))
-            # cv2.waitKey(1000)
-            # cv2.destroyAllWindows()
-
-            if self.transform:
-                # print("before transform - img: ", img.shape, " cropped: ", cropped_img.shape)
-                img = self.transform(img)
-                cropped_img = self.transform(cropped_img)
-                # print("after transform - img: ", img.shape, " cropped: ", cropped_img.shape)
-                # After transform, changed to tensor, img.shape: C x H x W
-            images.append(img)
-            cropped_images.append(cropped_img)
-
-        return torch.stack(images), torch.stack(cropped_images) # Time x Channel x H x W
-
-
-    def rgb_loader(self, img_path):
-        img = cv2.imread(img_path)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        return img
 
     def set_transform(self):
         if self.stage == 'train':
